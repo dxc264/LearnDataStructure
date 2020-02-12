@@ -190,10 +190,7 @@ public class BTree<K extends Comparable<K>, V> {
         if (height == 1) {
             for (j = 0; j < h.numberOfKeys; j++) {
                 if (eq(key, h.keyList[j].key)) {
-                    h.numberOfKeys--;
-                    for (int i = j; i < h.numberOfKeys; i++) {
-                        h.keyList[i] = h.keyList[i+1];
-                    }
+                    shiftToLeft(h, j);
                     if (h.numberOfKeys < MIN_KEYS_COUNT) {
                         return rebalanceAfterDelete(parentNode, separatorIndex);
                     }
@@ -298,10 +295,7 @@ public class BTree<K extends Comparable<K>, V> {
         deficientNode.numberOfKeys++;
         parentNode.keyList[separatorIndex] = new Entry(siblingNode.keyList[0].key, siblingNode.keyList[0].val);
         deficientNode.keyList[deficientNode.numberOfKeys].next = siblingNode.keyList[0].prev;
-        for (int i = 0; i < siblingNode.numberOfKeys; i++) {
-            siblingNode.keyList[i] = siblingNode.keyList[i + 1];
-        }
-        siblingNode.numberOfKeys--;
+        shiftToLeft(siblingNode, 0);
         parentNode.keyList[separatorIndex].prev = siblingNode;
         parentNode.keyList[separatorIndex].next = deficientNode;
     }
