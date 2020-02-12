@@ -178,7 +178,10 @@ public class BTree<K extends Comparable<K>, V> {
 
     public void delete(K key) {
         if (key == null) throw new IllegalArgumentException("key is null");
-        delete(root, key, height, null, 0);
+        Node newParentNode = delete(root, key, height, null, 0);
+        if (root.numberOfKeys == 0) {
+            root = newParentNode;
+        }
     }
 
     private Node delete(Node h, K key, int height, Node parentNode,  int separatorIndex) {
@@ -192,7 +195,7 @@ public class BTree<K extends Comparable<K>, V> {
                         h.keyList[i] = h.keyList[i+1];
                     }
                     if (h.numberOfKeys < MIN_KEYS_COUNT) {
-                        return rebalanceAfterDelete(parentNode, separatorIndex, height);
+                        return rebalanceAfterDelete(parentNode, separatorIndex);
                     }
                 }
             }
@@ -210,7 +213,7 @@ public class BTree<K extends Comparable<K>, V> {
             }
         }
         if (newDeficientNode != null) {
-            return rebalanceAfterDelete(parentNode, separatorIndex, height);
+            return rebalanceAfterDelete(parentNode, separatorIndex);
         }
         return null;
     }
@@ -218,23 +221,59 @@ public class BTree<K extends Comparable<K>, V> {
     private Node deleteFromInternalNode(Node parentNode, int deleteIndex, int height) {
         Entry oldSeparator = parentNode.keyList[deleteIndex];
         Entry newSeparator = null;
-        if (oldSeparator.prev.numberOfKeys > oldSeparator.next.numberOfKeys) {
-            newSeparator = new Entry(oldSeparator.prev.keyList[oldSeparator.prev.numberOfKeys-1].key, oldSeparator.prev.keyList[oldSeparator.prev.numberOfKeys-1].val);
-            oldSeparator.prev.numberOfKeys--;
-        }
-        if (oldSeparator.prev.numberOfKeys <= oldSeparator.next.numberOfKeys) {
-            newSeparator = new Entry(oldSeparator.next.keyList[0].key, oldSeparator.next.keyList[0].val);
-            shiftToLeft(oldSeparator.next, 0);
+        Node newNode = null;
+        Node newParentNode = null;
+        int newDeleteIndex = 0;
+        if (oldSeparator.prev != null) {
+            newNode = findLargestNodeInLeftTree(oldSeparator.prev, parentNode);
+            newDeleteIndex = newNode.numberOfKeys-1;
+            if (newNode.keyList[newDeleteIndex].next != null) {
+                newParentNode = newNode;
+                newNode = newParentNode.keyList[newDeleteIndex].next;
+            }
+            newSeparator = new Entry(newNode.keyList[newDeleteIndex].key, newNode.keyList[newDeleteIndex].val);
+            newNode.numberOfKeys--;
+        } else if (oldSeparator.next != null) {
+            newNode = findSmallestNodeInRightTree(oldSeparator.next, parentNode);
+            newDeleteIndex = 0;
+            if (newNode.keyList[0].prev != null) {
+                newParentNode = newNode;
+                newNode = newParentNode.keyList[0].prev;
+            }
+            newSeparator = new Entry(newNode.keyList[0].key, newNode.keyList[0].val);
+            shiftToLeft(newNode, 0);
         }
         if (newSeparator != null) {
             newSeparator.prev = oldSeparator.prev;
             newSeparator.next = oldSeparator.next;
-        }
-        parentNode.keyList[deleteIndex] = newSeparator;//delete oldSeparator
-        if ((oldSeparator.prev.numberOfKeys < MIN_KEYS_COUNT) || (oldSeparator.next.numberOfKeys < MIN_KEYS_COUNT)) {
-            return rebalanceAfterDelete(parentNode, deleteIndex, height);
+            parentNode.keyList[deleteIndex] = newSeparator;//delete oldSeparator
+            if (newNode.numberOfKeys < MIN_KEYS_COUNT) {
+                return rebalanceAfterDelete(newParentNode, newDeleteIndex);
+            }
         }
         return null;
+    }
+
+    private Node findLargestNodeInLeftTree(Node h, Node parentNode) {
+       if (h.keyList[h.numberOfKeys-1].next != null) {
+           return findLargestNodeInLeftTree(h.keyList[h.numberOfKeys-1].next, h);
+       } else {
+           if (h.numberOfKeys == MIN_KEYS_COUNT) {
+               return parentNode;
+           }
+           return h;
+       }
+    }
+
+    private Node findSmallestNodeInRightTree(Node h, Node parentNode) {
+        if (h.keyList[0].prev != null) {
+            return findLargestNodeInLeftTree(h.keyList[0].prev, h);
+        } else {
+            if (h.numberOfKeys == MIN_KEYS_COUNT) {
+                return parentNode;
+            }
+            return h;
+        }
     }
 
     private void rotateRight(Node parentNode, int separatorIndex, Node deficientNode, Node siblingNode) {
@@ -304,7 +343,7 @@ public class BTree<K extends Comparable<K>, V> {
         }
         return node;
     }
-    private Node rebalanceAfterDelete(Node parentNode, int separatorIndex, int height) {
+    private Node rebalanceAfterDelete(Node parentNode, int separatorIndex) {
         Node newNode = null;
         if (parentNode.keyList[separatorIndex].prev.numberOfKeys < parentNode.keyList[separatorIndex].next.numberOfKeys) {
             if (parentNode.keyList[separatorIndex].next.numberOfKeys > MIN_KEYS_COUNT) {
@@ -321,14 +360,10 @@ public class BTree<K extends Comparable<K>, V> {
                 newNode = mergeAllToRight(parentNode, separatorIndex, parentNode.keyList[separatorIndex].prev, parentNode.keyList[separatorIndex].next);
             }
         }
-        if (parentNode.numberOfKeys == 0 && height == 0) {
-            root = newNode;
-            return null;
-        }
         if (parentNode.numberOfKeys < MIN_KEYS_COUNT) {
             return parentNode;
         }
-        return null;
+        return newNode;
     }
 
     private boolean less(Comparable k1, Comparable k2) {
@@ -377,6 +412,8 @@ public class BTree<K extends Comparable<K>, V> {
        st.delete("Z");
       //  System.out.println(st.printTree());
         st.delete("Y");
+        st.delete("P");
+        st.delete("L");
         System.out.println(st.printTree());
     }
 }
